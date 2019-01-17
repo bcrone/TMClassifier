@@ -19,7 +19,7 @@ dataDirectory = '/Users/bcrone/Documents/RESEARCH/Rotations/WelchLab/Data/tabula
 '''TISSUES = ['Aorta','Bladder','Brain_Myeloid','Brain_Non-Myeloid','Diaphragm','Fat','Heart',
 		   	   'Kidney','Large_Intestine','Limb_Muscle','Liver','Lung','Mammary_Gland','Marrow',
 		       'Pancreas','Skin','Spleen','Thymus','Tongue','Trachea']'''
-TISSUES = ['Bladder']
+TISSUES = ['Aorta']
 def main():
 
 	for tissue in TISSUES:
@@ -42,14 +42,18 @@ def runRandomForest(tissue):
 	y_pred = clf.predict(X_test)
 	y_pred_map = y_pred.argmax(axis=1)
 	y_test_map = y_test.argmax(axis=1)
+	misses = 0
 	for i,x in np.ndenumerate(y_pred_map):
 		index = i[0]
 		cell = cellIDDict[X_test.iloc[index]['cell']]
 		pred = cellCatDict[y_pred_map[i]]
 		truth = cellCatDict[y_test_map[i]]
-		print(cell,pred,truth)
+		if pred != truth:
+			print(cell,pred,truth)
+			misses += 1
 
 		#print(y_pred_map[i], X_test.iloc[index]['cell'])
+	print(misses)
 	del tissueData
 
 def importTissue(tissue, dataDirectory):

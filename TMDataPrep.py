@@ -28,7 +28,7 @@ def main():
 		print(transposePath)
 		tissue_transpose = pd.read_csv(transposePath)
 		tissue_transpose.rename(columns={'Unnamed: 0':'cell'},inplace=True)
-		tissue_transpose_merge = tissue_transpose.merge(annotations, how="inner", on="cell")
+		tissue_transpose_merge = tissue_transpose.merge(annotations, how="left", on="cell")
 		mergeFile = addPostfix(file,'merge')
 		mergeList.append(mergeFile)
 		mergePath = "%s/merge/%s" % (dataDirectory, mergeFile)
