@@ -61,7 +61,7 @@ def importTissue(tissue, dataDirectory):
 	fileName = "%s-counts-transpose-merge.csv" % tissue
 	path = os.path.join(dataDirectory, fileName)
 	tissueData = pd.read_csv(path)
-
+	tissueData.dropna(how='any',inplace=True)
 	object_columns = list(tissueData.select_dtypes(include='object').columns)
 	for col in object_columns:
 		tissueData[col] = tissueData[col].astype('category')
