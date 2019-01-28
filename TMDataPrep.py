@@ -8,6 +8,7 @@ def main():
 
 	dataList = generateDataList(dataDirectory)
 	transposeList = []
+	normList = []
 	mergeList = []
 	annotations = pd.read_csv(annotationsFile)
 
@@ -27,12 +28,24 @@ def main():
 		transposePath = "%s/transpose/%s" % (dataDirectory, file)
 		print(transposePath)
 		tissue_transpose = pd.read_csv(transposePath)
-		tissue_transpose.rename(columns={'Unnamed: 0':'cell'},inplace=True)
-		tissue_transpose_merge = tissue_transpose.merge(annotations, how="left", on="cell")
+		tissue_transpose_counts = tissue_transpose.select_dtypes(exclude=[object])
+		tissue_transpose_counts = tissue_transpose_counts.div(tissue_transpose_counts.sum(axis=1), axis=0)
+		tissue_transpose[tissue_transpose_counts.columns] = tissue_transpose_counts
+		normFile = addPostfix(file,'norm')
+		normList.append(normFile)
+		normPath = "%s/norm/%s" % (dataDirectory, mergeFile)
+		tissue_transpose.to_csv(normPath, index=False)
+
+	for file in normList:
+		normPath = "%s/norm/%s" % (dataDirectory, file)
+		print(normPath)
+		tissue_norm = pd.read_csv(normPath)
+		tissue_norm.rename(columns={'Unnamed: 0':'cell'},inplace=True)
+		tissue_norm_merge = tissue_transpose.merge(annotations, how="left", on="cell")
 		mergeFile = addPostfix(file,'merge')
 		mergeList.append(mergeFile)
 		mergePath = "%s/merge/%s" % (dataDirectory, mergeFile)
-		tissue_transpose_merge.to_csv(mergePath, index=False)
+		tissue_norm_merge.to_csv(mergePath, index=False)
 
 def generateDataList(dataDirectory):
 	dataList = []
