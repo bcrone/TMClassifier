@@ -125,7 +125,7 @@ def runRandomForest(tissue, dataDirectory):
 
 def importTissue(tissue, dataDirectory):
 	print("Importing %s tissue data" % tissue)
-	fileName = "%s-counts-transpose-merge.csv" % tissue
+	fileName = "%s-counts-transpose-norm-merge.csv" % tissue
 	path = os.path.join(dataDirectory, fileName)
 	tissueData = pd.read_csv(path)
 	tissueData.dropna(how='any',inplace=True)
