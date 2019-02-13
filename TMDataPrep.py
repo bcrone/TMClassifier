@@ -32,6 +32,7 @@ def main():
 		cell = tissue_transpose[['cell']].copy()
 		tissue_transpose.drop(columns='cell', inplace=True)
 		tissue_transpose = tissue_transpose.div(tissue_transpose.sum(axis=1), axis=0)
+		tissue_transpose = (tissue_transpose - tissue_transpose.mean())/tissue_transpose.std()
 		tissue_norm = cell.join(tissue_transpose)
 		normFile = addPostfix(file,'norm')
 		normList.append(normFile)
