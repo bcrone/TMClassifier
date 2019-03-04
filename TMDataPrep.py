@@ -1,4 +1,5 @@
 import pandas as pd 
+import scanpy as sc
 import sys
 import os
 
@@ -6,6 +7,7 @@ def main():
 	dataDirectory = "/Users/bcrone/Documents/RESEARCH/Rotations/WelchLab/Data/tabula-muris/00_facs_raw_data/FACS"
 	annotationsFile = "/Users/bcrone/Documents/RESEARCH/Rotations/WelchLab/Data/tabula-muris/00_facs_raw_data/annotations_FACS.csv"
 
+	log = open("/Users/bcrone/Documents/RESEARCH/Rotations/WelchLab/Code/logs/TMDataPrep.log", 'w')
 	dataList = generateDataList(dataDirectory)
 	transposeList = []
 	normList = []
@@ -13,41 +15,56 @@ def main():
 	annotations = pd.read_csv(annotationsFile)
 
 	for file in dataList:
-		path = "%s/%s" % (dataDirectory,file)
-		print(path)
-		tissue = pd.read_csv(path)
-		tissue_transpose = tissue.T
-		tissue_transpose.columns = tissue_transpose.iloc[0]
-		tissue_transpose = tissue_transpose.reindex(tissue_transpose.index.drop('Unnamed: 0'))
-		transposeFile = addPostfix(file,'transpose')
+		transposeFile = transposeTissue(file, dataDirectory, log)
 		transposeList.append(transposeFile)
-		transposePath = "%s/transpose/%s" % (dataDirectory, transposeFile)
-		tissue_transpose.to_csv(transposePath)
 
 	for file in transposeList:
-		transposePath = "%s/transpose/%s" % (dataDirectory, file)
-		print(transposePath)
-		tissue_transpose = pd.read_csv(transposePath)
-		tissue_transpose.rename(columns={'Unnamed: 0':'cell'},inplace=True)
-		cell = tissue_transpose[['cell']].copy()
-		tissue_transpose.drop(columns='cell', inplace=True)
-		tissue_transpose = tissue_transpose.div(tissue_transpose.sum(axis=1), axis=0)
-		tissue_transpose = (tissue_transpose - tissue_transpose.mean())/tissue_transpose.std()
-		tissue_norm = cell.join(tissue_transpose)
-		normFile = addPostfix(file,'norm')
+		normFile = normalizeTissue(file, dataDirectory, log)
 		normList.append(normFile)
-		normPath = "%s/norm/%s" % (dataDirectory, normFile)
-		tissue_norm.to_csv(normPath, index=False)
 
 	for file in normList:
-		normPath = "%s/norm/%s" % (dataDirectory, file)
-		print(normPath)
-		tissue_norm = pd.read_csv(normPath)
-		tissue_norm_merge = tissue_norm.merge(annotations, how="left", on="cell")
-		mergeFile = addPostfix(file,'merge')
-		mergeList.append(mergeFile)
-		mergePath = "%s/merge/%s" % (dataDirectory, mergeFile)
-		tissue_norm_merge.to_csv(mergePath, index=False)
+		annotateTissue(file, dataDirectory, annotations, log)
+
+	log.close()
+
+def transposeTissue(file, dataDirectory, log):
+	path = "%s/%s" % (dataDirectory,file)
+	log.write(path+"\n")
+	tissue = pd.read_csv(path)
+	tissue_transpose = tissue.T
+	tissue_transpose.columns = tissue_transpose.iloc[0]
+	tissue_transpose = tissue_transpose.reindex(tissue_transpose.index.drop('Unnamed: 0'))
+	transposeFile = addPostfix(file,'transpose')
+	transposePath = "%s/transpose/%s" % (dataDirectory, transposeFile)
+	tissue_transpose.to_csv(transposePath)
+	return transposeFile
+
+def normalizeTissue(file, dataDirectory, log):
+	path = "%s/transpose/%s" % (dataDirectory, file)
+	log.write(path+"\n")
+	tissue_transpose = sc.read_csv(path, first_column_names=True)
+	log.write("Gene count (pre-filter): %s\n" % len(tissue_transpose.var_names))
+	sc.pp.normalize_per_cell(tissue_transpose,key_n_counts='n_all_counts')
+	filter_result = sc.pp.filter_genes_dispersion(tissue_transpose.X, flavor='seurat')
+	tissue_transpose = tissue_transpose[:, filter_result.gene_subset]
+	log.write("Gene count (post-filter): %s\n" % len(tissue_transpose.var_names))
+	sc.pp.normalize_per_cell(tissue_transpose,counts_per_cell_after=1)
+	sc.pp.scale(tissue_transpose)	
+	tissue_norm = pd.DataFrame(data=tissue_transpose.X,index=tissue_transpose.obs_names,columns=tissue_transpose.var_names)
+	tissue_norm.index.name = 'cell'
+	normFile = addPostfix(file,'norm')
+	normPath = "%s/norm/%s" % (dataDirectory, normFile)
+	tissue_norm.to_csv(normPath, index=True)
+	return normFile
+
+def annotateTissue(file, dataDirectory, annotations, log):
+	path = "%s/norm/%s" % (dataDirectory, file)
+	log.write(path + "\n")
+	tissue_norm = pd.read_csv(path)
+	tissue_norm_merge = tissue_norm.merge(annotations, how="left", on="cell")
+	mergeFile = addPostfix(file, 'merge')
+	mergePath = "%s/merge/%s" % (dataDirectory, mergeFile)
+	tissue_norm_merge.to_csv(mergePath, index=False)
 
 def generateDataList(dataDirectory):
 	dataList = []
