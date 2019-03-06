@@ -44,9 +44,11 @@ def normalizeTissue(file, dataDirectory, log):
 	log.write(path+"\n")
 	tissue_transpose = sc.read_csv(path, first_column_names=True)
 	log.write("Gene count (pre-filter): %s\n" % len(tissue_transpose.var_names))
-	sc.pp.normalize_per_cell(tissue_transpose,key_n_counts='n_all_counts')
-	filter_result = sc.pp.filter_genes_dispersion(tissue_transpose.X, flavor='seurat')
-	tissue_transpose = tissue_transpose[:, filter_result.gene_subset]
+	sc.pp.log1p(tissue_transpose)
+	sc.pp.highly_variable_genes(tissue_transpose, flavor='seurat')
+	highly_variable= tissue_transpose.var['highly_variable']
+	filter_result = highly_variable[highly_variable==True].keys()
+	tissue_transpose = tissue_transpose[:, filter_result]
 	log.write("Gene count (post-filter): %s\n" % len(tissue_transpose.var_names))
 	sc.pp.normalize_per_cell(tissue_transpose,counts_per_cell_after=1)
 	sc.pp.scale(tissue_transpose)	
