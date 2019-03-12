@@ -30,19 +30,29 @@ def main():
 		runRandomForest(tissue,dataDirectory)
 
 def runRandomForest(tissue, dataDirectory):
+
 	tissueData = importTissue(tissue, dataDirectory)
+
+	classCounts = tissueData['cell_ontology_class'].value_counts()
+	threshold = classCounts[classCounts >= 15].index.tolist()
+	tissueData = tissueData[tissueData['cell_ontology_class'].isin(threshold)]
+	tissueData['cell_ontology_class'] = tissueData['cell_ontology_class'].astype('category')
+	tissueData['cell_ontology_class'] = tissueData['cell_ontology_class'].cat.remove_unused_categories()
 	cellIDDict = dict(enumerate(tissueData['cell'].cat.categories))
 	cellCatDict = dict(enumerate(tissueData['cell_ontology_class'].cat.categories))
-	
+
 	category_columns = list(tissueData.select_dtypes(include='category').columns)
 	for col in category_columns:
 		tissueData[col] = tissueData[col].cat.codes
+
 	nclasses = len(tissueData['cell_ontology_class'].unique())
+	
 	X = tissueData.drop(columns=['tissue','cell_ontology_class','cell_ontology_term_iri','cell_ontology_id'])
 	y = label_binarize(tissueData['cell_ontology_class'], classes=list(range(nclasses)))
 	X_train, X_test, y_train, y_test = train_test_split(X,y, test_size=0.2)
-	clf=RandomForestClassifier(n_estimators=100)
+	clf=RandomForestClassifier(n_estimators=1000)
 	clf.fit(X_train,y_train)
+
 	y_pred = np.array(clf.predict_proba(X_test))
 	y_pred_map = {}
 	y_test_map = {}
@@ -65,8 +75,8 @@ def runRandomForest(tissue, dataDirectory):
 			out_match = out_match.append({'cell':cell, 'prediction':pred, 'truth':truth}, ignore_index=True)
 		else:
 			out_mismatch = out_mismatch.append({'cell':cell, 'prediction':pred, 'truth':truth}, ignore_index=True)
-	out_match.to_csv(os.path.join(outDirectory,"%s-match.csv" % tissue), index=False)
-	out_mismatch.to_csv(os.path.join(outDirectory,"%s-mismatch.csv" % tissue), index=False)
+	out_match.to_csv(os.path.join(outDirectory,"%s.match.csv" % tissue), index=False)
+	out_mismatch.to_csv(os.path.join(outDirectory,"%s.mismatch.csv" % tissue), index=False)
 	# Output important features
 	feature_imp = pd.Series(clf.feature_importances_,index=X.columns).sort_values(ascending=False)[:50]
 	f = open(os.path.join(outDirectory,"%s.features.csv" % tissue), 'w')
