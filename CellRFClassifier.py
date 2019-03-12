@@ -38,7 +38,7 @@ def runRandomForest(tissue, dataDirectory):
 	for col in category_columns:
 		tissueData[col] = tissueData[col].cat.codes
 	nclasses = len(tissueData['cell_ontology_class'].unique())
-	X = tissueData.drop(columns=['tissue','cell_ontology_class'])
+	X = tissueData.drop(columns=['tissue','cell_ontology_class','cell_ontology_term_iri','cell_ontology_id'])
 	y = label_binarize(tissueData['cell_ontology_class'], classes=list(range(nclasses)))
 	X_train, X_test, y_train, y_test = train_test_split(X,y, test_size=0.2)
 	clf=RandomForestClassifier(n_estimators=100)
@@ -69,7 +69,7 @@ def runRandomForest(tissue, dataDirectory):
 	out_mismatch.to_csv(os.path.join(outDirectory,"%s-mismatch.csv" % tissue), index=False)
 	# Output important features
 	feature_imp = pd.Series(clf.feature_importances_,index=X.columns).sort_values(ascending=False)[:50]
-	f = open(os.path.join(dataDirectory,"%s.features.csv" % tissue), 'w')
+	f = open(os.path.join(outDirectory,"%s.features.csv" % tissue), 'w')
 	writer = csv.writer(f, delimiter=',')
 	writer.writerow(["FEATURE","IMPORTANCE"])
 	for key,value in feature_imp.items():
@@ -93,11 +93,16 @@ def runRandomForest(tissue, dataDirectory):
 	fig = plt.figure()
 	colors = ['darkorange', 'blue', 'brown', 'green', 'red']
 	label = cellCatDict
+	f = open(os.path.join(outDirectory,"%s.auc.csv" % tissue), 'w')
+	writer = csv.writer(f, delimiter=',')
+	writer.writerow(["CLASS","ROC_AUC","FPR","TPR"])
 	for i in range(len(fpr)):
+		writer.writerow([label[i], roc_auc[i], fpr[i], tpr[i]])
 		plt.plot(fpr[i], tpr[i], color=colors[i % len(colors)], lw=lw, label='ROC curve (%s) (area = %0.4f)' % (label[i], roc_auc[i]))
 		plt.plot([0, 1], [0, 1], color='navy', lw=lw, linestyle='--')
 		plt.xlim([0.0, 1.0])
 		plt.ylim([0.0, 1.05])
+	f.close()
 	plt.xlabel('False Positive Rate')
 	plt.ylabel('True Positive Rate')
 	plt.title('ROC - %s' % tissue)
@@ -109,8 +114,13 @@ def runRandomForest(tissue, dataDirectory):
 	fontP.set_size('small')
 	step_kwargs = ({'step': 'post'} if 'step' in signature(plt.fill_between).parameters else {})
 	fig = plt.figure()
+	f = open(os.path.join(outDirectory,"%s.precision-recall.csv" % tissue), 'w')
+	writer = csv.writer(f, delimiter=',')
+	writer.writerow(["CLASS","AVERAGE PRECISION","PRECISION","RECALL"])
 	for i in range(len(precision)):
+		writer.writerow([label[i],average_precision[i],precision[i],recall[i]])
 		plt.step(recall[i], precision[i], color=colors[i % len(colors)], alpha=0.8, lw=lw, where='post', label="%s (AP=%0.4f)" % (label[i], average_precision[i]))
+	f.close()
 	plt.ylim([0.0, 1.05])
 	plt.xlim([0.0, 1.0])
 	plt.xlabel('Recall')
