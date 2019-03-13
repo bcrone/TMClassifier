@@ -8,6 +8,7 @@ from sklearn.metrics import roc_curve, auc
 from sklearn.metrics import roc_auc_score
 from sklearn.metrics import average_precision_score
 from sklearn.metrics import precision_recall_curve
+from sklearn.metrics import f1_score
 from sklearn.preprocessing import label_binarize
 from sklearn.ensemble import RandomForestClassifier
 from sklearn.model_selection import train_test_split
@@ -20,10 +21,11 @@ outDirectory = '/Users/bcrone/Documents/RESEARCH/Rotations/WelchLab/Data/tabula-
 		   	   'Kidney','Large_Intestine','Limb_Muscle','Liver','Lung','Mammary_Gland','Marrow',
 		       'Pancreas','Skin','Spleen','Thymus','Tongue','Trachea']'''
 # For single tissues, ignoring binary class tissues (Brain_Myeloid, Thymus, Tongue)
-TISSUES = ['Aorta','Bladder','Brain_Non-Myeloid','Diaphragm','Fat','Heart',
+'''TISSUES = ['Aorta','Bladder','Brain_Non-Myeloid','Diaphragm','Fat','Heart',
 		   	   'Kidney','Large_Intestine','Limb_Muscle','Liver','Lung','Mammary_Gland','Marrow',
 		       'Pancreas','Skin','Spleen','Trachea']
-
+'''
+TISSUES = ['Heart']
 def main():
 
 	for tissue in TISSUES:
@@ -64,6 +66,18 @@ def runRandomForest(tissue, dataDirectory):
 	for i in range(y_pred_collapse.shape[0]):
 		y_pred_map[i] = y_pred_collapse[i].argmax(axis=0)
 		y_test_map[i] = y_test[i].argmax(axis=0)
+		
+	# Calculate F1 Scores	
+	f = open(os.path.join(outDirectory,"%s.f1.csv" % tissue), 'w')
+	writer = csv.writer(f, delimiter=',')
+	writer.writerow(["AVERAGE","SCORE"])
+	for avg in ['macro','micro','weighted',None]:
+		if avg == None:
+			writer.writerow(['None',f1_score(y_test, y_pred_collapse, average=avg)])
+		else:
+			writer.writerow([avg,f1_score(y_test, y_pred_collapse, average=avg)])
+	f.close()
+
 	# Output raw results
 	out_match = pd.DataFrame(columns=['cell','prediction','truth'])
 	out_mismatch = pd.DataFrame(columns=['cell','prediction','truth'])
