@@ -37,16 +37,22 @@ def runRandomForest(tissue, dataDirectory):
 
 	classCounts = tissueData['cell_ontology_class'].value_counts()
 	threshold = classCounts[classCounts >= 15].index.tolist()
+	droppedClasses = classCounts[classCounts < 15].index.tolist()
+	print("Dropped classes: ")
+	for i in droppedClasses:
+		print(i)
 	tissueData = tissueData[tissueData['cell_ontology_class'].isin(threshold)]
 	tissueData['cell_ontology_class'] = tissueData['cell_ontology_class'].astype('category')
 	tissueData['cell_ontology_class'] = tissueData['cell_ontology_class'].cat.remove_unused_categories()
 	cellIDDict = dict(enumerate(tissueData['cell'].cat.categories))
 	cellCatDict = dict(enumerate(tissueData['cell_ontology_class'].cat.categories))
+	cellTissueDict = dict()
+	for cell in list(tissueData['cell']):
+		cellTissueDict[cell] = tissueData.loc[tissueData['cell'] == cell, 'tissue'].values[0]
 
 	category_columns = list(tissueData.select_dtypes(include='category').columns)
 	for col in category_columns:
 		tissueData[col] = tissueData[col].cat.codes
-
 	nclasses = len(tissueData['cell_ontology_class'].unique())
 	
 	X = tissueData.drop(columns=['tissue','cell_ontology_class','cell_ontology_term_iri','cell_ontology_id'])
@@ -66,7 +72,7 @@ def runRandomForest(tissue, dataDirectory):
 	for i in range(y_pred_collapse.shape[0]):
 		y_pred_map[i] = y_pred_collapse[i].argmax(axis=0)
 		y_test_map[i] = y_test[i].argmax(axis=0)
-		
+
 	# Calculate F1 Scores	
 	f = open(os.path.join(outDirectory,"%s.f1.csv" % tissue), 'w')
 	writer = csv.writer(f, delimiter=',')
@@ -79,16 +85,17 @@ def runRandomForest(tissue, dataDirectory):
 	f.close()
 
 	# Output raw results
-	out_match = pd.DataFrame(columns=['cell','prediction','truth'])
-	out_mismatch = pd.DataFrame(columns=['cell','prediction','truth'])
+	out_match = pd.DataFrame(columns=['cell','tissue','prediction','truth'])
+	out_mismatch = pd.DataFrame(columns=['cell','tissue','prediction','truth'])
 	for i,x in y_pred_map.items():
 		cell = cellIDDict[X_test.iloc[i]['cell']]
+		tis = cellTissueDict[cell]
 		pred = cellCatDict[y_pred_map[i]]
 		truth = cellCatDict[y_test_map[i]]
 		if pred == truth:
-			out_match = out_match.append({'cell':cell, 'prediction':pred, 'truth':truth}, ignore_index=True)
+			out_match = out_match.append({'cell':cell, 'tissue':tis, 'prediction':pred, 'truth':truth}, ignore_index=True)
 		else:
-			out_mismatch = out_mismatch.append({'cell':cell, 'prediction':pred, 'truth':truth}, ignore_index=True)
+			out_mismatch = out_mismatch.append({'cell':cell, 'tissue':tis, 'prediction':pred, 'truth':truth}, ignore_index=True)
 	out_match.to_csv(os.path.join(outDirectory,"%s.match.csv" % tissue), index=False)
 	out_mismatch.to_csv(os.path.join(outDirectory,"%s.mismatch.csv" % tissue), index=False)
 	# Output important features
